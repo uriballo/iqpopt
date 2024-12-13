@@ -1,0 +1,9 @@
+*egg-info
+__pycache__
+
+paper/datasets/*/*
+!paper/datasets/*/*/
+!paper/datasets/*/*.py
+
+paper/datasets/*/*/*
+!paper/datasets/*/*/*.py

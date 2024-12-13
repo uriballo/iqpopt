@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+title: Fast optimization of IQP circuits with JAX
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Erik
+    family-names: Recio-Armengol
+    email: erik.recio@icfo.eu
+    affiliation: ICFO (Institute of Photonic Sciences)
+  - given-names: Joseph
+    family-names: Bowles
+    email: joseph@xanadu.ai
+    affiliation: Xanadu
+identifiers:
+  - type: url
+    value: https://www.google.com
+    description: Paper's arxiv
+repository-code: https://www.google.com
+keywords:
+  - Generative Modeling
+  - Quantum Machine Learning
