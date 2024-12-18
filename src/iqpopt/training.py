@@ -10,17 +10,17 @@ from tqdm import tqdm
 
 
 class Trainer:
-    """ Class that creates an Trainer object for loss callable."""
+    """ Class that creates a Trainer object used to optimize a loss function."""
     def __init__(self, optimizer: str, loss: Callable, stepsize: float,
                  opt_jit: bool = False):
-        """Creates the Trainer object.
-
+        """
         Args:
-            optimizer (str): The string name of the jaxopt optimizer.
-            loss (Callable): The loss function we want to optimize.
-            stepsize (float): The stepsize that the optimizer will take.
-            opt_jit (bool, optional): It jits the whole training process if True. Can't be used with functions
-                that are not jittable without static argnames (mmd_loss_iqp being one example).Defaults to False.
+            optimizer (str): The string name of the jaxopt optimizer. Either "Adam", "BFGS" or "GradientDescent"
+            loss (Callable): The loss function to optimize. The function must have a first argument called 'params'
+                that corresponds to the parameters to be optimized.
+            stepsize (float): The initial stepsize used in the gradient descent update.
+            opt_jit (bool, optional): If True, jit the entire training process if True. Can't be used with functions
+                that are not jittable without static argnames. Defaults to False.
         """
 
         key_exists = dict(signature(loss).parameters).pop("key", False)
@@ -42,21 +42,24 @@ class Trainer:
     def train(self, n_iters: int, loss_kwargs: dict, val_kwargs: dict = None,
               convergence_interval: int = None, monitor_interval: int = None,
               turbo=None, random_state=666):
-        """Training loop that minimizes the loss function with the given loss_kwargs.
+        """Train the loss function. The arguments to the loss must be specified by a dictionary loss_kwargs that contains
+        key-value pairs for each argument. The value of the key 'params' is taken as the initial parameter values.
 
         Args:
-            n_iters (int): Number of iterations in the loop.
-            loss_kwargs (dict): dictionary with all the arguments of the loss function with their values used for training.
-                must contain a key 'params' that stores the training parameters
-            val_kwargs (dict): dictionary with all the arguments except 'params' of the loss function with their values used for
+            n_iters (int): Number of iterations for which to optimize.
+            loss_kwargs (dict): dictionary with all the arguments of the loss function and their values.
+                must contain a key 'params' that stores the initial parameter values.
+            val_kwargs (dict, optional): dictionary with all the arguments except 'params' of the loss function with their values used for
                 validation/convergence. if None, the training loss is used to decide convergence.
-            convergence_interval (int): number of steps over which to decide convergence. If the loss does not decrease
-                or increased over this scale, the training is stopped.
+            convergence_interval (int, optional): number of steps over which to decide convergence. The optimization terminates
+                when the loss function does not decrease or increases over this scale. The loss function that decides
+                convergence uses the arguments in val_kwargs if specified, otherwise it uses loss_kwargs.
             monitor_interval (int, optional): Every "monitor_interval" iterations, the program saves the variable params
                 in a historic list. Defaults to None, meaning there's no monitoring of the history of params.
-            turbo (int or None, optional): If set to an int, jax.lax is used to compile every turbo number of training
-                steps for faster training. If None, a standard for loop is used.
-            random_state (int): seed for random functions
+            turbo (int or None, optional): If set to an int, the gradient function is jitted and jax.lax is used to
+                compile every turbo number of training steps for faster training. If None, a standard for loop is used.
+            random_state (int, optional): seed that is used to set the key argument of loss, if present. Only active if
+                loss_kwargs and/or val_kwargs does not contain a key called 'key'; otherwise that key is used.
         """
 
         start = time.time()

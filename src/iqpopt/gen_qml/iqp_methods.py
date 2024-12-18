@@ -11,7 +11,7 @@ from .utils import gaussian_kernel
 def loss_estimate_iqp(params: jnp.ndarray, iqp_circuit: IqpSimulator, ground_truth: jnp.ndarray, visible_ops: jnp.ndarray,
                       all_ops: jnp.ndarray, n_samples: int, key: Array, indep_estimates: bool = False, sqrt_loss: bool = False,
                       return_expvals: bool = False, max_batch_ops: int = None, max_batch_samples: int = None) -> float:
-    """Estimates the MMD Loss for the given IQP circuit with the training set and the input parameters.
+    """Estimates the MMD Loss of an IQP circuit with respect to a ground truth distribution.
 
     Args:
         params (jnp.ndarray): The parameters of the IQP gates.
@@ -21,14 +21,14 @@ def loss_estimate_iqp(params: jnp.ndarray, iqp_circuit: IqpSimulator, ground_tru
         all_ops (jnp.ndarray): Matrix with the all the operators as rows (0s and 1s). Used to estimate the IQP part of the loss.
         n_samples (jnp.ndarray): Number of samples used to estimate the loss.
         key (Array): Jax key to control the randomness of the process.
-        indep_estimates (bool): Whether to use independent estimates of the ops in a batch (takes longer). Defaults to False.
-        sqrt_loss (bool): Whether to use the square root of the MMD^2 loss. Note estiamtes will no longer be unbiased. Defaults to False.
-        return_expvals (bool): Whether to return the expectation values of the IQP circuit or return the loss. Defaults to False.
-        max_batch_ops (int): Maximum number of operators in a batch of op_expval. Defaults to None.
-        max_batch_samples (int): Maximum number of samples in a batch of op_expval. Defaults to None.
+        indep_estimates (bool, optional): Whether to use independent estimates of the ops in a batch (takes longer). Defaults to False.
+        sqrt_loss (bool, optional): Whether to use the square root of the MMD^2 loss. Note estiamtes will no longer be unbiased. Defaults to False.
+        return_expvals (bool, optional): Whether to return the expectation values of the IQP circuit or return the loss. Defaults to False.
+        max_batch_ops (int, optional): Maximum number of operators in a batch of op_expval. Defaults to None.
+        max_batch_samples (int, optional): Maximum number of samples in a batch of op_expval. Defaults to None.
 
     Returns:
-        float: the value of the loss.
+        float: The value of the loss.
     """
     tr_iqp_samples = iqp_circuit.op_expval(params, all_ops, n_samples, key, indep_estimates, return_samples=True,
                                            max_batch_ops=max_batch_ops, max_batch_samples=max_batch_samples)
@@ -53,22 +53,32 @@ def loss_estimate_iqp(params: jnp.ndarray, iqp_circuit: IqpSimulator, ground_tru
 def mmd_loss_iqp(params: jnp.ndarray, iqp_circuit: IqpSimulator, ground_truth: jnp.ndarray, sigma: float or list, n_ops: int,
                  n_samples: int, key: Array, wires: list = None, indep_estimates: bool = False, jit: bool = True,
                  sqrt_loss: bool = False, return_expvals: bool = False, max_batch_ops: int = None, max_batch_samples: int = None) -> float:
-    """Estimates the MMD Loss for the given IQP circuit with the training set and the input parameters.
+    """Returns an estimate of the (squared) MMD Loss of an IQP circuit with respect to a ground truth
+     distribution. Requires a set of samples from the ground truth distribution. The estimate is unbiased in the sense
+     that the expectation of the estimator wrt samples from the ground truth is the exact (squared) MMD loss. The kernel
+     used is the Gaussian kernel with bandwidth specified by sigma.
+
+     The function uses a randomized method whose precision can be increased by using larger values of n_samples and/or
+     n_ops.
 
     Args:
         params (jnp.ndarray): The parameters of the IQP gates.
-        iqp_circuit (IqpSimulator): The IQP circuit itself given by the class IqpSimulator.
-        ground_truth (jnp.ndarray): Matrix with the training samples as rows (0s and 1s).
-        sigma (list): Sigma parameter, the width of the kernel. If several are given as a list the mean will be taken.
-        n_ops (jnp.ndarray): Number of operators used to estimate the loss.
+        iqp_circuit (IqpSimulator): The IQP circuit given as a IqpSimulator object.
+        ground_truth (jnp.ndarray): Array containing the samples from the ground truth distribution as rows (0s and 1s).
+        sigma (float or list): The bandwidth of the kernel. If several are given as a list the average loss over each value will
+            be returned.
+        n_ops (int): Number of operators used to estimate the loss.
         n_samples (jnp.ndarray): Number of samples used to estimate the loss.
-        key (Array): Jax key to control the randomness of the process.
-        wires (list): List of qubits positions where the operators will be measured. The rest will be traced away.
-            Defaults to None, which refers to using all qubits.
-        indep_estimates (bool): Whether to use independent estimates of the ops in a batch (takes longer). Defaults to False.
+        key (jax.random.PRNGKey): Jax PRNG key used to seed random functions.
+        wires (list, optional): List of qubit positions that specifies the qubits whose measurement statistics are
+            used to estimate the MMD loss. The remaining qubits will be traced out. Defaults to None, meaning all
+            qubits are used.
+        indep_estimates (bool): Whether to use independent estimates when estimating expvals of ops (takes longer).
         jit (bool): Whether to jit the loss (works only for circuits with sparse=False). Defaults to True.
-        sqrt_loss (bool): Whether to use the square root of the MMD^2 loss. Note estiamtes will no longer be unbiased. Defaults to False.
-        return_expvals (bool): Whether to return the expectation values of the IQP circuit or return the loss. Defaults to False.
+        sqrt_loss (bool): Whether to use the square root of the MMD^2 loss. Note estimates will no longer be unbiased.
+            Defaults to False.
+        return_expvals (bool): If True, the expectation values of the IQP circuit used to estimate the loss are
+            returned. Defaults to False.
         max_batch_ops (int): Maximum number of operators in a batch of op_expval. Defaults to None.
         max_batch_samples (int): Maximum number of samples in a batch of op_expval. Defaults to None.
 
@@ -122,7 +132,9 @@ def mmd_loss_iqp(params: jnp.ndarray, iqp_circuit: IqpSimulator, ground_truth: j
 def exp_kgel_iqp(iqp_circuit: IqpSimulator, params: jnp.ndarray, witnesses: jnp.ndarray, sigma: float, n_ops: int,
                  n_samples: int, key: Array, wires: list = None, indep_estimates=False,
                  max_batch_ops: int = None, max_batch_samples: int = None) -> jnp.ndarray:
-    """Calculates the right hand side of the kernel generalized empiral likelihood test of equation 6 in https://arxiv.org/pdf/2306.09780.
+    """Calculates the right hand side of the kernel generalized empirical likelihood  (KGEL)
+    (see equation 6 in https://arxiv.org/pdf/2306.09780).
+
     Args:
         iqp_circuit (IqpSimulator): The IQP circuit itself given by the class IqpSimulator.
         params (jnp.ndarray): The parameters of the IQP gates.
@@ -171,7 +183,10 @@ def exp_kgel_iqp(iqp_circuit: IqpSimulator, params: jnp.ndarray, witnesses: jnp.
 def kgel_opt_iqp(iqp_circuit: IqpSimulator, params: jnp.ndarray, witnesses: jnp.ndarray, ground_truth: jnp.ndarray,
                  sigma: float, n_ops: int, n_samples: int, key: Array, verbose: bool = True,
                  wires: list = None, indep_estimates=False, max_batch_ops: int = None, max_batch_samples: int = None) -> list:
-    """Calculates the kernel generalized empiral likelihood (kgel) test of equation 6 in https://arxiv.org/pdf/2306.09780.
+    """Calculates the right hand side of the kernel generalized empirical likelihood  (KGEL)
+    (see equation 6 in https://arxiv.org/pdf/2306.09780). Uses cvxpy to solve the convex optimization problem.
+    May require large values of n_ops and n_samples to arrive at stable estimates. Note that unlike the MMD loss,
+    these estimates are not guaranteed to be unbiased.
 
     Args:
         iqp_circuit (IqpSimulator): The IQP circuit itself given by the class IqpSimulator.
@@ -183,12 +198,12 @@ def kgel_opt_iqp(iqp_circuit: IqpSimulator, params: jnp.ndarray, witnesses: jnp.
         n_samples (int): Number of samples used to calculate the IQP expectation value.
         key (Array): Jax key to control the randomness of the process.
         verbose (bool, optional): Controls if the process is going to output information aboutt the optimization to the console. Defaults to True.
-        wires (list): List of qubits positions where the operators will be measured. The rest will be traced away.
-            Defaults to None, which refers to using all qubits.
-        indep_estimates (bool): Whether to use independent estimates of the ops in a batch (takes longer).
-        max_batch_ops (int): Maximum number of operators in a batch of op_expval. Defaults to None.
-        max_batch_samples (int): Maximum number of samples in a batch of op_expval. Defaults to None.
-
+        wires (list, optional):List of qubit positions that specifies the qubits whose measurement statistics are
+            used to estimate the KGEL. The remaining qubits will be traced out. Defaults to None, meaning all
+            qubits are used.
+        indep_estimates (bool, optional): Whether to use independent estimates of the ops in a batch (takes longer).
+        max_batch_ops (int, optional): Maximum number of operators in a batch of op_expval. Defaults to None.
+        max_batch_samples (int, optional): Maximum number of samples in a batch of op_expval. Defaults to None.
 
     Returns:
         list:

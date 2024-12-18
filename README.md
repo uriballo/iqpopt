@@ -10,7 +10,7 @@ Install with
 pip install .
 ```
 
-or in editable model with 
+or in editable mode with 
 ```python
 pip install -e .
 ```
@@ -28,7 +28,7 @@ import iqpopt as iqp
 from iqpopt.utils import local_gates
 
 n_qubits = 2
-gates = local_gates(n_qubits, 1) 
+gates = local_gates(n_qubits, 2) 
 
 circuit = iqp.IqpSimulator(n_qubits, gates)
 ```
@@ -37,8 +37,11 @@ Each element of `gates` corresponds to a trainable parameter, and is given by a 
 that specifies the generators of the parameter. 
 
 For example, in the above the function
-`local_gates` returns `gates = [[[0]],[[1]]]` which specifies two trainable parameters with gate generators
-$X_0$ and $X_1$. 
+`local_gates` returns `gates = [[[0]],[[1]],[[0,1]]]` which specifies three trainable parameters with gate generators
+$X_0$, $X_1$ and $X_0X_1$. 
+
+One can also specify some gates to have fixed, non-trainable parameters. For example,
+
 
 [//]: # (The gate list )
 
@@ -60,10 +63,10 @@ $X_0$ and $X_1$.
 ```python
 circuit = iqp.IqpSimulator(n_qubits, [[[0]],[[1]]], init_gates = [[[0,1]]], init_coefs=[0.5])
 ```
-specifies that a gate with generator $X_0X_1$ and fixed parameter 0.5 should be applied at the start of the circuit. 
+defines a circuit with two trainable gates with generators $X_0$ and $X_1$ and specifies that a gate with generator $X_0X_1$ and fixed parameter 0.5 should be applied at the start of the circuit. 
 
-> **Note**: For very large problems it is recommended to initialize the circuit with the option `sparse=True`. 
-> This uses scipy sparse matrix multiplication in place of JAX and can be significantly faster and memory efficient.
+> **Note**: For very large problems it can be useful to initialize the circuit with the option `sparse=True`. 
+> This uses scipy sparse matrix multiplication in place of JAX and can be significantly more memory efficient.
 
 
 ## Expectation values
@@ -77,14 +80,13 @@ import jax
 import jax.numpy as jnp
 
 op = jnp.array([0, 1]) #binary array representing Z_1
-params = jnp.array([0.1, 0.4])
+params = jnp.ones(len(circuit.gates))
 n_samples = 1000
 key = jax.random.PRNGKey(42)
 
 expval, std = circuit.op_expval(params, op, n_samples, key)
 ```
-returns an estimate of $\langle Z_1 \rangle$ as well as the standard deviation of its estimator, so that the error is 
-roughly `std/sqrt(n_samples)`.
+returns an estimate of $\langle Z_1 \rangle$ as well as the standard deviation of the estimator.
 
 The package also allows for fast batch evaluation of expectation values. If we specify a batch of Z 
 operators by an array
@@ -97,9 +99,9 @@ we can also batch evaluate the expectation values in parallel:
 expvals, stds = circuit.op_expval(params, ops, n_samples, key)
 ```
 
-> **Note**: The estimation of each expectation value in the batch is unbiased, however the estimators may be correlated
-> since they are each estimated using the same batch of random bitstrings (specified by n_samples, key). This effect
-> can be reduced by increasing n_samples in order to reduce the variance of each estimator. 
+> **Note**: The estimation of each expectation value in the batch is unbiased, however the estimators may be correlated.
+> This effect can be reduced by increasing n_samples in order to reduce the variance of each estimator, or by 
+> using the option `indep_estimates=True to return uncorrelated estimates (at the cost of longer runtime).
 
 
 ## Training
@@ -121,7 +123,7 @@ import matplotlib.pyplot as plt
 optimizer = "Adam" 
 stepsize = 0.001
 n_iters = 1000
-params_init = np.random.normal(0, 1/np.sqrt(n_qubits), len(gates))
+params_init = np.random.normal(0, 1/np.sqrt(n_qubits), len(circuit.gates))
 ops = np.array([[1,1], [1,0], [0,1]])
 n_samples = 1000
 
@@ -141,7 +143,7 @@ plt.plot(trainer.losses)
 
 Automatic stopping of training is possible using the `convergence_interval` option of `train`; see the docstring for more info. 
 
-## Classical bitflipping model
+## Stochastic bitflip model
 One can replace the quantum circuit by an analogous bitflipping model described in arxiv:XXXX by initializing the circuit 
 with the `bitflip=True` option:
 

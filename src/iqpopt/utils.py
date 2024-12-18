@@ -8,19 +8,34 @@ from scipy.sparse import csr_matrix
 
 ##### GATE CONSTUCTOR FUNCTIONS #######
 
-def gate_lists_to_arrays(gate_lists: list, max_idx: int) -> list:
+def local_gates(n_qubits: int, max_weight=2):
+    """
+    Generates a gate list for an IqpSimulator object containing all gates whose generators have Pauli weight
+    less or equal than max_weight.
+    :param n_qubits: The number of qubits in the gate list
+    :param max_weight: maximum Pauli weight of gate generators
+    :return (list[list[list[int]]]): gate list object for IqpSimulator
+    """
+    gates = []
+    for weight in np.arange(1, max_weight+1):
+        for gate in combinations(np.arange(n_qubits), weight):
+            gates.append([list(gate)])
+    return gates
+
+def gate_lists_to_arrays(gate_lists: list, n_qubits: int) -> list:
     """Transforms the gates parameter into a list of arrays of 0s and 1s.
 
     Args:
-        gate_lists (list): Gates parameter in list form.
-        max_idx (int): Num of qubits.
+        gate_lists (list[list[list[int]]]): Gates list for IqpSimulator object.
+        n_qubits (int): number of qubits in the return arrays
 
     Returns:
         list: Gates parameter in list of arrays form.
     """
+
     gate_arrays = []
     for gates in gate_lists:
-        arr = np.zeros([len(gates), max_idx])
+        arr = np.zeros([len(gates), n_qubits])
         for i, gate in enumerate(gates):
             for j in gate:
                 arr[i, j] = 1.
@@ -58,7 +73,7 @@ def nodes_within_distance(G, source, distance):
 def nearest_neighbour_gates(G, distance: int, max_weight=2):
     """
     For every node on a graph G, find all other nodes within a specified distance, and create all gates
-    up to a maximum weight from these nodes. All such gates are returned as a list of lists to be used
+    up to a maximum weight from these nodes. All such gates are returned as a gate list to be used
     with IQPSimulator.
     :param G: networkx graph that determines the distances, or a path reference to a networkx adjacency list file
     :param distance: maximum distance to consider
@@ -86,7 +101,7 @@ def nearest_neighbour_gates(G, distance: int, max_weight=2):
 
 def nearest_neighbour_lattice_gates(height: int, width: int, distance: int, max_weight=2):
     """
-    Implemennts nearest_neighbour_gates for the specific case where the graph is a 2D lattice
+    Implements nearest_neighbour_gates for the specific case where the graph is a 2D lattice
     with periodic boundary conditions
     :param height: lattice height
     :param width: lattice width
@@ -100,20 +115,6 @@ def nearest_neighbour_lattice_gates(height: int, width: int, distance: int, max_
                for j in range(width)}
     G = nx.relabel_nodes(G, mapping)
     return nearest_neighbour_gates(G, distance, max_weight)
-
-
-def local_gates(max_idx: int, max_weight=2):
-    """
-    Generates all gates with weight less than max_weight.
-    :param max_idx: The maximum index to consider (i.e. the number of qubits/spins)
-    :param max_weight: maximum weight
-    :return: list of lists specifying gates
-    """
-    gates = []
-    for weight in np.arange(1, max_weight+1):
-        for gate in combinations(np.arange(max_idx), weight):
-            gates.append([list(gate)])
-    return gates
 
 
 def expand_gate_list(gate_lists, max_idx, n_ancilla, max_weight=2):
@@ -185,20 +186,20 @@ def random_gates(n_gates, max_idx, min_weight=None, max_weight=None):
 
 ##### PARAMETER INITIALIZATIONS #######
 
-
 def initialize_from_data(gates_list: list, data: jnp.array, scale=-1, param_noise=0.):
     """
     Given a dataset and a gate specification, returns initial parameters such that
+
     - for each gate of the form [[i,j]], the corresponding parameter is set to the covariance between the ith and jth
         dimension of the dataset (using pm1 data) times the scale factor.
     - for each gate of the form [[i]] the corresponding parameter is set to the mean value of the ith dimension of the
         dataset times pi/2
-    - parameters of all other gates are set with a normal distribution with standard devidation noise_std
+    - parameters of all other gates are set with a normal distribution with standard deviation param_noise
 
-    if scale is set to -1, a specific heuristic is used.
+    if scale is set to -1, a specific default heuristic is used.
 
-    :param gates_list (list of list): list of lists specifying the gates of the cirucit
-    :param data: dataset
+    :param gates_list (list[list[list]]]): gate lists specifying the gates of the cirucit
+    :param data (array): dataset of binary features
     :return: The parameter array
     """
     cov_mat = np.cov((2*data-1).T)  # use pm1 data for covariance
@@ -228,7 +229,7 @@ def initialize_from_data(gates_list: list, data: jnp.array, scale=-1, param_nois
 def construct_convariance_matrix(circuit, params, n_samples, key, indep_estimates=False,
                                  max_batch_ops=None, max_batch_samples=None):
     """
-    Construct the coviance matrix of an IQP cicuit.
+    Construct the covariance matrix of an IQP cicuit.
     Args:
         params (IqpSimulator): The IQP circuit given by the class IqpSimulator.
         params (jnp.ndarray): The parameters of the IQP gates.
