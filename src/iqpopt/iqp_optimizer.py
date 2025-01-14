@@ -162,7 +162,7 @@ class IqpSimulator:
         if self.bitflip:
             samples = []
             for _ in range(shots):
-                sample = jnp.zeros(self.n_qubits)
+                sample = np.zeros(self.n_qubits)
                 if self.spin_sym:
                     sample = (sample+1) % 2 if np.random.rand() > 0.5 else sample
 
@@ -179,7 +179,7 @@ class IqpSimulator:
                             sample[gen] = sample[gen] + 1
                             sample = sample % 2
                 samples.append(sample)
-            return samples
+            return jnp.array(samples)
 
         else:
             dev = qml.device(self.device, wires=self.n_qubits, shots=shots)
