@@ -1,6 +1,6 @@
 # IQPopt - IQP circuit optimization with JAX
 IQPopt is a package designed for fast optimization of parameterized Instantaneous quantum polynomial (IQP) circuits 
-using JAX. 
+using JAX. Research paper avaliable [here](https://arxiv.org/abs/2501.04776). 
 
 ## Installation
 
@@ -144,7 +144,7 @@ plt.plot(trainer.losses)
 Automatic stopping of training is possible using the `convergence_interval` option of `train`; see the docstring for more info. 
 
 ## Stochastic bitflip model
-One can replace the quantum circuit by an analogous bitflipping model described in arxiv:XXXX by initializing the circuit 
+One can replace the quantum circuit by an analogous bitflipping model described in arxiv:2501.04776 by initializing the circuit 
 with the `bitflip=True` option:
 
 ```python
