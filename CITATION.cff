@@ -15,9 +15,9 @@ authors:
     affiliation: Xanadu
 identifiers:
   - type: url
-    value: https://www.google.com
+    value: https://arxiv.org/abs/2501.04776
     description: Paper's arxiv
-repository-code: https://www.google.com
+repository-code: https://github.com/XanaduAI/iqpopt
 keywords:
   - Generative Modeling
   - Quantum Machine Learning
