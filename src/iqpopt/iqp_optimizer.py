@@ -13,7 +13,8 @@ class IqpSimulator:
 
     def __init__(self, n_qubits: int, gates: list, device: str = "lightning.qubit",
                  spin_sym: bool = False, init_gates: list = None, init_coefs: list = None,
-                 sparse: bool = False, bitflip: bool = False):
+                 sparse: bool = False, bitflip: bool = False, encoding: bool = False,
+                 encoding_repeats: int = 2):
         """
         Args:
             n_qubits (int): Total number of qubits of the circuit.
@@ -31,6 +32,8 @@ class IqpSimulator:
                 to better memory efficiency and potentially faster runtime.
             bitflip (bool, optional): If True, the circuit is equivalent to a classical stochastic model where the
                 gates correspond to correlated bitflips.
+            encoding (bool, optional): If True, uses the IQP encoding template at the beginning of the circuit.
+            encoding_repeats (int, optional): Number of repetitions of the IQP encoding template.
 
         Raises:
             Exception: when gates and params have a different number of elements.
@@ -122,14 +125,25 @@ class IqpSimulator:
             trans_coef = jnp.array(trans_coef)
 
             self.init_trans_coef = trans_coef @ self.init_coefs
+            
+        self.encoding = encoding
+        self.encoding_repeats = encoding_repeats
 
-    def iqp_circuit(self, params: jnp.ndarray):
+    def iqp_circuit(self, params: jnp.ndarray, features: jnp.ndarray = None):
         """IQP circuit in pennylane form.
 
         Args:
             params (jnp.ndarray): The parameters of the IQP gates.
+            features (jnp.ndarray, optional): The features to be encoded in the circuit. Defaults to None.
         """
-
+        # Does it matter if its before or after the Hadamards?
+        if self.encoding:
+            if features is None:
+                raise ValueError("features must be provided for encoding circuits")
+            if len(features) != self.n_qubits:
+                raise ValueError("features must have the same length as n_qubits")
+            qml.IQPEmbedding(features, wires=range(self.n_qubits), n_repeats=self.encoding_repeats)
+            
         if self.spin_sym:
             qml.PauliRot(2*jnp.pi/4, "Y"+"X"*(self.n_qubits-1), wires=range(self.n_qubits))
 
@@ -148,12 +162,13 @@ class IqpSimulator:
         for i in range(self.n_qubits):
             qml.Hadamard(i)
 
-    def sample(self, params: jnp.ndarray, shots: int = 1) -> jnp.ndarray:
+    def sample(self, params: jnp.ndarray, features: jnp.ndarray = None, shots: int = 1) -> jnp.ndarray:
         """Sample the IQP circuit using state vector simulation in Pennylane.
         Only possible for circuits with small numbers of qubits.
 
         Args:
             params (jnp.ndarray): The parameters of the IQP gates.
+            features (jnp.ndarray, optional): The features to be encoded in the circuit. Defaults to None
             shots (int): Number of samples that are output. Defaults to 1.
 
         Returns:
@@ -186,16 +201,17 @@ class IqpSimulator:
 
             @qml.qnode(dev)
             def sample_circuit(params):
-                self.iqp_circuit(params)
+                self.iqp_circuit(params, features)
                 return qml.sample(wires=range(self.n_qubits))
             return sample_circuit(params)
 
-    def probs(self, params: jnp.ndarray) -> jnp.ndarray:
+    def probs(self, params: jnp.ndarray, features: jnp.ndarray = None) -> jnp.ndarray:
         """Returns the probabilities of all possible bitstrings using state vector simulation in
         PennyLane. Only possible for circuits with small numbers of qubits.
 
         Args:
             params (jnp.ndarray): The parameters of the IQP gates.
+            features (jnp.ndarray, optional): The features to be encoded in the circuit. Defaults to None.
 
         Returns:
             jnp.ndarray: Probabilities of all possible bitstrings.
@@ -208,7 +224,7 @@ class IqpSimulator:
 
         @qml.qnode(dev)
         def probs_circuit(params):
-            self.iqp_circuit(params)
+            self.iqp_circuit(params, features)
             return qml.probs(wires=range(self.n_qubits))
         return probs_circuit(params)
 
